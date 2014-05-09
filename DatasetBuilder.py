@@ -10,10 +10,16 @@ import Models as Model
 class DatasetBuilder(object):
 
 	# 
+	# A datasection looks like this
+	# [m, t, w, t, f, Incoming, Outgoing, Incest, Incoming Infected, Outgoing Infected, Incest Infected, FlueTrends...]
 	# 
-	# 
-	def __init__(self, schoolname):
 
+	# 
+	# 
+	# 
+	def __init__(self, schoolname, timeInterval):
+
+		self.timeInterval = timeInterval
 		self.db = database = SqliteDatabase('database.db')
 		self.schoolname = schoolname.decode('utf-8')
 		self.googleFlueFile = 'fluetrends.json'
@@ -22,33 +28,100 @@ class DatasetBuilder(object):
 		for school in Model.School().raw('SELECT * FROM school WHERE name=?', unicode(self.schoolname)):
 			self.school = school
 
-		print '\nIncome Rate: ', len(self.getIncomeRate(['2012-01-01', '2012-02-01']))
-		print 'Outcome Rate: ', len(self.getOutcomeRate(['2012-01-01', '2012-02-01']))
-		print 'Incest Rate: ', len(self.getIncestRate(['2005-01-01', '2021-01-01']))
 
-		print '\nInfected Income Rate: ', len(self.getInfectedIncomingRate(['2005-01-01', '2021-01-01']))
-		print 'Infected Outcome Rate: ', len(self.getInfectedOutgoingRate(['2005-01-01', '2021-01-01']))
-		print 'Infected Incest Rate: ', len(self.getInfectedIncestRate(['2005-01-01', '2021-01-01']))
+		self.departments = [d for d in Model.Department.raw('SELECT * FROM department WHERE school_id=?', self.school.id)]
 
-		print self.getFlueTrendsRate(['2013-01-01', '2013-02-01'])
+		ds = self.getDataSet(self.timeInterval)
+
+		for d in ds:
+			print d
 
 	# 
 	# 
 	# 
-	def createDataSection(self):
+	def getDataSet(self, timeInterval):
+		dataset = []
 
-		section = []
+		sdate = datetime.datetime.strptime(timeInterval[0], '%Y-%m-%d')
 
-		pass
+		while sdate <= datetime.datetime.strptime(timeInterval[1], '%Y-%m-%d'):
+
+			sfdate = sdate + datetime.timedelta(days=4)
+
+			dataset.append(self.createDataSection([ str(sdate.strftime("%Y-%m-%d")), str(sfdate.strftime("%Y-%m-%d")) ]))
+
+			sdate = sdate + datetime.timedelta(days=7)
+		
+		return dataset
+
+	# 
+	# 
+	# 
+	def createDataSection(self, timeInterval):
+
+		print 'Creating section'
+
+		# Add number of absences
+		section = [] + self.getNumberOfAbsences(timeInterval)
+
+		# Add incoming rate
+		section.append(len(self.getIncomeRate(timeInterval)))
+
+		# Add outgoing rate
+		section.append(len(self.getOutcomeRate(timeInterval)))		
+
+		# Add incest rate
+		section.append(len(self.getIncestRate(timeInterval)))
+
+		# Add incoming infected
+		section.append(len(self.getInfectedIncomingRate(timeInterval)))
+
+		# Add outgoing infected
+		section.append(len(self.getInfectedOutgoingRate(timeInterval)))
+
+		# Add incest infected
+		section.append(len(self.getInfectedIncestRate(timeInterval)))
+
+		# Add fluetrends
+		section.append(self.getFlueTrendsRate(timeInterval)[0]['value'])
+
+		return section
+
+	# 
+	# 
+	# 
+	def getNumberOfAbsences(self, timeInterval):
+
+		listOfAbsences = []
+
+		sdate = datetime.datetime.strptime(timeInterval[0], '%Y-%m-%d')
+		while sdate <= datetime.datetime.strptime(timeInterval[1], '%Y-%m-%d'):
+
+			children = []
+			absences = 0
+
+			# 
+			# What is going to happen below could be implemented as a single SQL query but
+			# I honestly dont know sql good enough...
+			# 
+			for department in self.departments:
+				for childCon in department.childs:
+					if not childCon.child.id in children:
+						# fetch all absences
+						absences = absences + childCon.child.absences.where(Model.Absence.date == sdate.strftime('%Y-%m-%d')).count()
+						children.append(childCon.child.id)
+
+			listOfAbsences.append(absences)
+			sdate = sdate + datetime.timedelta(1)
+		
+		return listOfAbsences
 
 	# 
 	# Returns a list with all incoming links to this school
 	# 
 	def getIncomeRate(self, timeInterval):
-
-		departments = [d for d in Model.Department.raw('SELECT * FROM department WHERE school_id=?', self.school.id)]
 		links = []
-		for d in departments:
+		for d in self.departments:
 			for w in Model.DepartmentWeights.raw('SELECT * FROM departmentweights WHERE destination_id=? AND owner_id != ? AND fromdate>=Datetime(?) AND todate>Datetime(?)', d.id, d.id, timeInterval[0], timeInterval[1]):
 				links.append(w)
 
@@ -58,9 +131,8 @@ class DatasetBuilder(object):
 	# Returns a list with all outgoing links from this school
 	# 
 	def getOutcomeRate(self, timeInterval):
-		departments = [d for d in Model.Department.raw('SELECT * FROM department WHERE school_id=?', self.school.id)]
 		links = []
-		for d in departments:
+		for d in self.departments:
 			for w in Model.DepartmentWeights.raw('SELECT * FROM departmentweights WHERE owner_id=? AND destination_id != ? AND fromdate>=Datetime(?) AND todate>Datetime(?);', d.id, d.id, timeInterval[0], timeInterval[1]):
 				links.append(w)
 
@@ -70,10 +142,8 @@ class DatasetBuilder(object):
 	# Returns a list with all links within the school
 	# 
 	def getIncestRate(self, timeInterval):
-
-		departments = [d for d in Model.Department.raw('SELECT * FROM department WHERE school_id=?', self.school.id)]
 		links = []
-		for d in departments:
+		for d in self.departments:
 			for w in Model.DepartmentWeights.raw('SELECT * FROM departmentweights WHERE owner_id=? AND destination_id=? AND fromdate>=Datetime(?) AND todate>=Datetime(?)', d.id, d.id, timeInterval[0], timeInterval[1]):
 				links.append(w)
 
@@ -130,12 +200,6 @@ class DatasetBuilder(object):
 	# 
 	# 
 	# 
-	def getDataSet(self):
-		return []
-
-	# 
-	# 
-	# 
 	def getFlueTrends(self):
 		f = open(self.googleFlueFile)
 		data = json.load(f)
@@ -151,7 +215,7 @@ class DatasetBuilder(object):
 		for dp in data:
 			date = datetime.datetime.strptime(dp['date'], '%Y-%m-%d')
 
-			if date >= datetime.datetime.strptime(timeInterval[0], '%Y-%m-%d') and date <= datetime.datetime.strptime(timeInterval[1], '%Y-%m-%d'):
+			if date >= datetime.datetime.strptime(timeInterval[0], '%Y-%m-%d') and date <= datetime.datetime.strptime(timeInterval[1], '%Y-%m-%d') + datetime.timedelta(days=6):
 				dps.append(dp)
 		
 		return dps

@@ -86,7 +86,7 @@ if __name__ == "__main__":
     # 
     # 
     # 
-    d = DB.DatasetBuilder(sys.argv[1])
+    d = DB.DatasetBuilder(sys.argv[1], ['2013-01-07', '2013-05-31'])
     # run()
 
 
