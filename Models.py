@@ -93,4 +93,6 @@ class DepartmentWeights(BaseModel):
 	id = IntegerField(primary_key=True, index=True, unique=True)
 	owner = ForeignKeyField(Department, related_name='weights', to_field='id')
 	destination = ForeignKeyField(Department, related_name='weight', to_field='id')
-	weight = DoubleField()
+	fromdate = CharField(null=True)
+	todate = CharField(null=True)
+	childOwner = ForeignKeyField(Child, related_name='ownerWeight', to_field='id')
