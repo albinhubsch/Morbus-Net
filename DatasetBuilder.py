@@ -7,6 +7,10 @@ import datetime
 from peewee import *
 import Models as Model
 
+# 
+# DatasetBuilder
+# Class builds a dataset from a specific school and timeinterval
+# 
 class DatasetBuilder(object):
 
 	# 
@@ -15,11 +19,10 @@ class DatasetBuilder(object):
 	# 
 
 	# 
+	# Constructor
 	# 
-	# 
-	def __init__(self, schoolname, timeInterval):
+	def __init__(self, schoolname):
 
-		self.timeInterval = timeInterval
 		self.db = database = SqliteDatabase('database.db')
 		self.schoolname = schoolname.decode('utf-8')
 		self.googleFlueFile = 'fluetrends.json'
@@ -31,13 +34,8 @@ class DatasetBuilder(object):
 
 		self.departments = [d for d in Model.Department.raw('SELECT * FROM department WHERE school_id=?', self.school.id)]
 
-		ds = self.getDataSet(self.timeInterval)
-
-		for d in ds:
-			print d
-
 	# 
-	# 
+	# Return the full data set
 	# 
 	def getDataSet(self, timeInterval):
 		dataset = []
@@ -55,7 +53,7 @@ class DatasetBuilder(object):
 		return dataset
 
 	# 
-	# 
+	# Create a datasection
 	# 
 	def createDataSection(self, timeInterval):
 
@@ -87,8 +85,10 @@ class DatasetBuilder(object):
 
 		return section
 
+		# return [float(x)/max(section) for x in section]
+
 	# 
-	# 
+	# Return number of absences for a timeinterval
 	# 
 	def getNumberOfAbsences(self, timeInterval):
 
@@ -122,7 +122,7 @@ class DatasetBuilder(object):
 	def getIncomeRate(self, timeInterval):
 		links = []
 		for d in self.departments:
-			for w in Model.DepartmentWeights.raw('SELECT * FROM departmentweights WHERE destination_id=? AND owner_id != ? AND fromdate>=Datetime(?) AND todate>Datetime(?)', d.id, d.id, timeInterval[0], timeInterval[1]):
+			for w in Model.DepartmentWeights.raw('SELECT * FROM departmentweights WHERE destination_id=? AND owner_id != ? AND fromdate>=Datetime(?) AND todate>=Datetime(?)', d.id, d.id, timeInterval[0], timeInterval[1]):
 				links.append(w)
 
 		return links
@@ -133,7 +133,7 @@ class DatasetBuilder(object):
 	def getOutcomeRate(self, timeInterval):
 		links = []
 		for d in self.departments:
-			for w in Model.DepartmentWeights.raw('SELECT * FROM departmentweights WHERE owner_id=? AND destination_id != ? AND fromdate>=Datetime(?) AND todate>Datetime(?);', d.id, d.id, timeInterval[0], timeInterval[1]):
+			for w in Model.DepartmentWeights.raw('SELECT * FROM departmentweights WHERE owner_id=? AND destination_id != ? AND fromdate>=Datetime(?) AND todate>=Datetime(?);', d.id, d.id, timeInterval[0], timeInterval[1]):
 				links.append(w)
 
 		return links
@@ -198,7 +198,7 @@ class DatasetBuilder(object):
 		return False
 
 	# 
-	# 
+	# Open google Flue trends file and return content
 	# 
 	def getFlueTrends(self):
 		f = open(self.googleFlueFile)
@@ -207,7 +207,7 @@ class DatasetBuilder(object):
 		return data
 
 	# 
-	# 
+	# Return flue trend for timeInterval
 	# 
 	def getFlueTrendsRate(self, timeInterval):
 		data = self.getFlueTrends()

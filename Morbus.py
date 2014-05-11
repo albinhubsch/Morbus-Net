@@ -12,83 +12,93 @@ from pybrain.supervised.trainers import BackpropTrainer
 
 from pybrain.datasets import SupervisedDataSet
 
+import numpy as np
+import pylab as pl
+from scipy import stats
+
+from sklearn import linear_model
+from sklearn.linear_model import BayesianRidge, LinearRegression
+
 # from pybrain import *
 import DatasetBuilder as DB
 from peewee import *
 import Models as Model
 
+# 
+# 
+# 
+def createAnswerSection(ds):
+	return [ds[0], ds[1], ds[2], ds[3], ds[4]]
 
 # 
 # 
 # 
+def intializeDataset(dataset):
 
-def make_dataset():
-    """
-    Creates a set of training data.
-    """
-    data = SupervisedDataSet(2,1)
+	data = SupervisedDataSet(12,5)
 
-    data.addSample([1,1],[0])
-    data.addSample([1,0],[1])
-    data.addSample([0,1],[1])
-    data.addSample([0,0],[0])
+	for index, section in enumerate(dataset):
+		try:
+			data.addSample( tuple(section), tuple(createAnswerSection( dataset[index + 1] )) )
+		except Exception as e:
+			print 'end'
 
-    return data
+	return data
 
-
+# 
+# 
+# 
 def training(d):
-    """
-    Builds a network and trains it.
-    """
-    n = buildNetwork(d.indim, 2, d.outdim, recurrent=False)
-    t = BackpropTrainer(n, d, learningrate = 0.01, momentum = 0.99, verbose = True)
-    for epoch in range(0,1000):
-        t.train()
-    return t
+	n = buildNetwork(d.indim, 12, d.outdim, recurrent=False, hiddenclass=TanhLayer)
+	t = BackpropTrainer(n, d, learningrate = 0.01, verbose=True)
 
+	# trainer.trainUntilConvergence()
 
-def test(trained):
-    """
-    Builds a new test dataset and tests the trained network on it.
-    """
-    testdata = SupervisedDataSet(2,1)
-    testdata.addSample([1,1],[0])
-    testdata.addSample([1,0],[1])
-    testdata.addSample([0,1],[1])
-    testdata.addSample([0,0],[0])
-    trained.testOnData(testdata, verbose= True)
-
-
-def run():
-    """
-    Use this function to run build, train, and test your neural network.
-    """
-    trainingdata = make_dataset()
-    trained = training(trainingdata)
-    test(trained)
+	for epoch in range(0,2900):
+		t.train()
+	return t
 
 # 
 # 
 # 
+def test(trained, dataset):
+	testdata = SupervisedDataSet(12,5)
 
+	for index, section in enumerate(dataset):
+		try:
+			testdata.addSample( tuple(section), tuple(createAnswerSection( dataset[index + 1] )) )
+		except Exception as e:
+			print 'end'
 
+	trained.testOnData(testdata, verbose= True)
+
+# 
+# 
+# 
 if __name__ == "__main__":
 
-    # Start timer
-    start = time.time()
+	# Start timer
+	start = time.time()
 
-    # Check if all parameters is given
-    if sys.argv is None or len(sys.argv) <= 2:
-        print 'All parameters not set.'
-        print 'This is what I need: Schoolname mode'
-        exit(0)
+	# Check if all parameters is given
+	if sys.argv is None or len(sys.argv) <= 2:
+		print 'All parameters not set.'
+		print 'This is what I need: Schoolname mode'
+		exit(0)
 
-    # 
-    # 
-    # 
-    d = DB.DatasetBuilder(sys.argv[1], ['2013-01-07', '2013-05-31'])
-    # run()
+	if sys.argv[2] is '1':
+		# 
+		d = DB.DatasetBuilder(sys.argv[1])
+		train_data = d.getDataSet(['2012-10-01', '2014-01-31'])
+		test_data = d.getDataSet(['2014-02-03', '2014-02-21'])
+
+		trainingData = intializeDataset(train_data)
+		trained = training(trainingData)
+		test(trained, test_data)
+
+	elif sys.argv[2] is '2':
+		print 'hej'
 
 
-    # Calculate timed program
-    print "\nProgram took", time.time() - start, "seconds to run."
+	# Calculate timed program
+	print "\nProgram took", time.time() - start, "seconds to run."
