@@ -28,8 +28,7 @@ class DatasetBuilder(object):
 		self.googleFlueFile = 'fluetrends.json'
 
 		# Fetch school
-		for school in Model.School().raw('SELECT * FROM school WHERE name=?', unicode(self.schoolname)):
-			self.school = school
+		self.school = Model.School.select().where(Model.School.name == unicode(schoolname)).first()
 
 
 		self.departments = [d for d in Model.Department.raw('SELECT * FROM department WHERE school_id=?', self.school.id)]

@@ -35,7 +35,7 @@ X = np.random.randn(n_samples, n_features)  # Create gaussian data
 
 H = np.random.randn(2, 3)  # Create gaussian data
 
-print H
+# print H
 
 
 # Create weigts with a precision lambda_ of 4.
@@ -56,6 +56,8 @@ noise = stats.norm.rvs(loc=0, scale=1. / np.sqrt(alpha_), size=n_samples)
 
 # Create the target
 y = np.dot(X, w) + noise
+
+print y
 
 
 ###############################################################################
